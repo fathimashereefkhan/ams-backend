@@ -100,9 +100,9 @@ const studentSchema = new Schema(
 	{
 		// _id: { type: String },
 		user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-		adm_number : {type: String, required: false , unique: true },
+		adm_number : {type: String, required: false , unique: true, sparse: true },
 		adm_year: { type: Number, required: true },
-		candidate_code: { type: String, required: false , unique: true },
+		candidate_code: { type: String, required: false , unique: true, sparse: true },
 		department: { 
 			type: String, 	
 			required: true,

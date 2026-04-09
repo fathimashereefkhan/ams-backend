@@ -45,6 +45,12 @@ Retrieve the authenticated user's profile or a specific user's profile by ID.
 - `422` - User data not added (role-specific data missing)
 - `401` - Unauthorized
 
+**Response Shape Notes:**
+- GET responses are flattened for frontend consumption.
+- `data.id.record` is the role-profile record ID (`Student` / `Teacher` / `Parent`).
+- `data.id.user` is the base `User` document ID.
+- Base user fields and role-specific fields are returned at the root of `data`.
+
 **Response Examples:**
 
 Success response (Student Profile):
@@ -53,7 +59,10 @@ Success response (Student Profile):
   "status_code": 200,
   "message": "User profile fetched successfully",
   "data": {
-    "_id": "student_id",
+    "id": {
+      "record": "student_profile_id",
+      "user": "base_user_id"
+    },
     "name": "John Doe",
     "email": "john@example.com",
     "first_name": "John",
@@ -73,24 +82,22 @@ Success response (Student Profile):
 ```
 
 Incomplete Data response (422 Unprocessable Entity):
-Returned when a user is partially created but missing fully validated, required role-specific traits. This includes the incomplete `profile` object and the base `user` for form pre-filling.
+Returned when a user is partially created but missing fully validated, required role-specific traits. The response uses the same fallback shape for every role and does not include a `profile` object.
 
 ```json
 {
   "status_code": 422,
   "message": "Student data need to be added.",
   "data": {
-    "user": {
-      "_id": "user_id",
-      "name": "John Doe",
-      "email": "john@example.com",
-      "role": "student"
-    },
-    "profile": {
-      "_id": "student_id",
-      "batch": "batch_id",
+    "id": {
+      "record": "user_id",
       "user": "user_id"
-    }
+    },
+    "name": "John Doe",
+    "email": "john@example.com",
+    "role": "student",
+    "first_name": "John",
+    "last_name": "Doe"
   }
 }
 ```
@@ -101,7 +108,10 @@ Success response (Teacher Profile):
   "status_code": 200,
   "message": "User profile fetched successfully",
   "data": {
-    "_id": "teacher_id",
+    "id": {
+      "record": "teacher_profile_id",
+      "user": "base_user_id"
+    },
     "name": "Jane Smith",
     "email": "jane@example.com",
     "first_name": "Jane",
@@ -121,7 +131,10 @@ Parent Profile:
   "status_code": 200,
   "message": "User profile fetched successfully",
   "data": {
-    "_id": "parent_id",
+    "id": {
+      "record": "parent_profile_id",
+      "user": "base_user_id"
+    },
     "name": "Robert Brown",
     "email": "robert@example.com",
     "role": "parent",
@@ -320,6 +333,10 @@ GET /user/list?role=admin&limit=50
 
 **Response Format:**
 
+Each user object in the `users` array includes:
+- `id.record`: role-profile record ID (`Student` / `Teacher` / `Parent` document ID)
+- `id.user`: base `User` document ID
+
 **For Students:**
 ```json
 {
@@ -328,7 +345,10 @@ GET /user/list?role=admin&limit=50
   "data": {
     "users": [
       {
-        "_id": "user_id",
+        "id": {
+          "record": "student_profile_id",
+          "user": "user_id"
+        },
         "name": "John Doe",
         "email": "john@example.com",
         "emailVerified": true,
@@ -372,7 +392,10 @@ GET /user/list?role=admin&limit=50
   "data": {
     "users": [
       {
-        "_id": "user_id",
+        "id": {
+          "record": "teacher_profile_id",
+          "user": "user_id"
+        },
         "name": "Jane Smith",
         "email": "jane@example.com",
         "role": "teacher",
@@ -402,7 +425,10 @@ GET /user/list?role=admin&limit=50
   "data": {
     "users": [
       {
-        "_id": "user_id",
+        "id": {
+          "record": "parent_profile_id",
+          "user": "user_id"
+        },
         "name": "Robert Brown",
         "email": "robert@example.com",
         "role": "parent",

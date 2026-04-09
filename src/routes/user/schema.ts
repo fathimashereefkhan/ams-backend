@@ -85,62 +85,6 @@ export const userUpdateSchema: RouteShorthandOptions["schema"] = {
       },
     },
 
-    allOf: [
-      {
-        if: {
-          required: ["student"],
-        },
-        then: {
-          properties: {
-            student: {
-              type: "object",
-              anyOf: [
-                { type: "object", required: ["adm_number"] },
-                { type: "object", required: ["adm_year"] },
-                { type: "object", required: ["candidate_code"] },
-                { type: "object", required: ["department"] },
-                { type: "object", required: ["date_of_birth"] },
-                { type: "object", required: ["batch"] },
-              ],
-            },
-          },
-        },
-      },
-      {
-        if: {
-          required: ["teacher"],
-        },
-        then: {
-          properties: {
-            teacher: {
-              type: "object",
-              anyOf: [
-                { type: "object", required: ["designation"] },
-                { type: "object", required: ["department"] },
-                { type: "object", required: ["date_of_joining"] },
-              ],
-            },
-          },
-        },
-      },
-      {
-        if: {
-          required: ["parent"],
-        },
-        then: {
-          properties: {
-            parent: {
-              type: "object",
-              anyOf: [
-                { type: "object", required: ["relation"] },
-                { type: "object", required: ["childID"] },
-              ],
-            },
-          },
-        },
-      },
-    ],
-
     additionalProperties: false,
   },
 };
@@ -253,7 +197,6 @@ export const bulkCreateSchema: RouteShorthandOptions["schema"] = {
       users: {
         type: "array",
         minItems: 1,
-        maxItems: 100,
         items: {
           type: "object",
           required: ["first_name", "last_name", "role"],

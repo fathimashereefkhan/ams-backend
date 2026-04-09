@@ -6,6 +6,98 @@ import { auth } from "@/plugins/auth";
 import { authClient } from "@/plugins/auth";
 import { bulkCreateWorkspaceUsers, type WorkspaceUserInput } from "@/lib/google-workspace";
 
+const toIsoString = (value: unknown): string | undefined => {
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "string") return value;
+  return undefined;
+};
+
+const buildBaseUserPayload = (baseUser: any, recordId: any) => ({
+  id: {
+    record: String(recordId),
+    user: String(baseUser._id),
+  },
+  name: baseUser.name,
+  email: baseUser.email,
+  role: baseUser.role,
+  ...(baseUser.first_name != null ? { first_name: baseUser.first_name } : {}),
+  ...(baseUser.last_name != null ? { last_name: baseUser.last_name } : {}),
+  ...(baseUser.phone != null ? { phone: baseUser.phone } : {}),
+  ...(baseUser.gender != null ? { gender: baseUser.gender } : {}),
+  ...(baseUser.image != null ? { image: baseUser.image } : {}),
+  ...(baseUser.emailVerified != null ? { emailVerified: baseUser.emailVerified } : {}),
+  ...(toIsoString(baseUser.createdAt) ? { createdAt: toIsoString(baseUser.createdAt) } : {}),
+  ...(toIsoString(baseUser.updatedAt) ? { updatedAt: toIsoString(baseUser.updatedAt) } : {}),
+});
+
+const buildStudentPayload = (studentProfile: any) => {
+  const base = buildBaseUserPayload(studentProfile.user, studentProfile._id);
+
+  return {
+    ...base,
+    ...(studentProfile.adm_number != null ? { adm_number: studentProfile.adm_number } : {}),
+    ...(studentProfile.adm_year != null ? { adm_year: studentProfile.adm_year } : {}),
+    ...(studentProfile.candidate_code != null
+      ? { candidate_code: studentProfile.candidate_code }
+      : {}),
+    ...(studentProfile.department != null ? { department: studentProfile.department } : {}),
+    ...(toIsoString(studentProfile.date_of_birth)
+      ? { date_of_birth: toIsoString(studentProfile.date_of_birth) }
+      : {}),
+    ...(studentProfile.batch != null ? { batch: studentProfile.batch } : {}),
+  };
+};
+
+const buildTeacherPayload = (teacherProfile: any) => {
+  const base = buildBaseUserPayload(teacherProfile.user, teacherProfile._id);
+
+  return {
+    ...base,
+    ...(teacherProfile.designation != null ? { designation: teacherProfile.designation } : {}),
+    ...(teacherProfile.department != null ? { department: teacherProfile.department } : {}),
+    ...(toIsoString(teacherProfile.date_of_joining)
+      ? { date_of_joining: toIsoString(teacherProfile.date_of_joining) }
+      : {}),
+  };
+};
+
+const buildParentPayload = (parentProfile: any) => {
+  const base = buildBaseUserPayload(parentProfile.user, parentProfile._id);
+  const child = parentProfile.child;
+
+  return {
+    ...base,
+    ...(parentProfile.relation != null ? { relation: parentProfile.relation } : {}),
+    ...(child
+      ? {
+          child: {
+            ...(child._id != null ? { _id: String(child._id) } : {}),
+            ...(child.adm_number != null ? { adm_number: child.adm_number } : {}),
+            ...(child.adm_year != null ? { adm_year: child.adm_year } : {}),
+            ...(child.candidate_code != null ? { candidate_code: child.candidate_code } : {}),
+            ...(child.user
+              ? {
+                  user: {
+                    ...(child.user.name != null ? { name: child.user.name } : {}),
+                    ...(child.user.email != null ? { email: child.user.email } : {}),
+                    ...(child.user.first_name != null
+                      ? { first_name: child.user.first_name }
+                      : {}),
+                    ...(child.user.last_name != null
+                      ? { last_name: child.user.last_name }
+                      : {}),
+                  },
+                }
+              : {}),
+          },
+        }
+      : {}),
+  };
+};
+
+const buildIncompleteUserPayload = (user: any) =>
+  buildBaseUserPayload(user, user._id);
+
 export const getUser = async (
   request: FastifyRequest<{ Params: { id?: string } }>,
   reply: FastifyReply
@@ -23,8 +115,9 @@ export const getUser = async (
     }
 
     const userRole = user.role;
+
     if (userRole === "student") {
-      const student_profile = await Student.findOne({
+      const studentProfile = await Student.findOne({
         user: userId,
       }).populate(
         "user",
@@ -33,39 +126,35 @@ export const getUser = async (
 
       // if data is not added to DB or is incomplete, show the signup form in the frontend.
       if (
-        !student_profile ||
-        !student_profile.adm_number ||
-        !student_profile.adm_year ||
-        !student_profile.candidate_code ||
-        !student_profile.department ||
-        !student_profile.date_of_birth
+        !studentProfile ||
+        !studentProfile.adm_number ||
+        !studentProfile.adm_year ||
+        !studentProfile.candidate_code ||
+        !studentProfile.department ||
+        !studentProfile.date_of_birth
       ) {
         return reply.status(422).send({
           status_code: 422,
           message: "Student data need to be added.",
-          data: { user, profile: student_profile },
+          data: buildIncompleteUserPayload(user),
         });
       }
-
-      const responseData = {
-        ...(student_profile.user as any).toObject(),
-        ...student_profile.toObject(),
-      };
-      delete responseData.user;
 
       return reply.send({
         status_code: 200,
         message: "User profile fetched successfully",
-        data: responseData,
+        data: buildStudentPayload(studentProfile),
       });
-    } else if (
+    }
+
+    if (
       userRole === "teacher" ||
       userRole === "principal" ||
       userRole === "hod" ||
       userRole === "admin" ||
       userRole === "staff"
     ) {
-      const teacher_profile = await Teacher.findOne({
+      const teacherProfile = await Teacher.findOne({
         user: userId,
       }).populate(
         "user",
@@ -74,31 +163,27 @@ export const getUser = async (
 
       // if data is not added to DB or is incomplete, show the signup form in the frontend.
       if (
-        !teacher_profile ||
-        !teacher_profile.designation ||
-        !teacher_profile.department ||
-        !teacher_profile.date_of_joining
+        !teacherProfile ||
+        !teacherProfile.designation ||
+        !teacherProfile.department ||
+        !teacherProfile.date_of_joining
       ) {
         return reply.status(422).send({
           status_code: 422,
           message: "Teacher data need to be added.",
-          data: { user, profile: teacher_profile },
+          data: buildIncompleteUserPayload(user),
         });
       }
-
-      const responseData = {
-        ...(teacher_profile.user as any).toObject(),
-        ...teacher_profile.toObject(),
-      };
-      delete responseData.user;
 
       return reply.send({
         status_code: 200,
         message: "User profile fetched successfully",
-        data: responseData,
+        data: buildTeacherPayload(teacherProfile),
       });
-    } else if (userRole === "parent") {
-      const parent_profile = await Parent.findOne({ user: userId })
+    }
+
+    if (userRole === "parent") {
+      const parentProfile = await Parent.findOne({ user: userId })
         .populate(
           "user",
           "name email image gender first_name last_name role phone createdAt updatedAt"
@@ -118,34 +203,34 @@ export const getUser = async (
 
       // if data is not added to DB or is incomplete, show the signup form in the frontend.
       if (
-        !parent_profile ||
-        !parent_profile.child ||
-        !parent_profile.relation
+        !parentProfile ||
+        !parentProfile.child ||
+        !parentProfile.relation
       ) {
         return reply.status(422).send({
           status_code: 422,
           message: "Parent data need to be added.",
-          data: { user, profile: parent_profile },
+          data: buildIncompleteUserPayload(user),
         });
       }
-
-      const responseData = {
-        ...(parent_profile.user as any).toObject(),
-        ...parent_profile.toObject(),
-      };
-      delete responseData.user;
 
       return reply.send({
         status_code: 200,
         message: "User profile fetched successfully",
-        data: responseData,
+        data: buildParentPayload(parentProfile),
       });
     }
+
+    return reply.status(422).send({
+      status_code: 422,
+      message: "User role profile is not supported",
+      data: { user },
+    });
   } catch (e) {
-    return reply.send({
-      status_code: 204,
+    return reply.status(500).send({
+      status_code: 500,
+      message: "Failed to fetch user profile",
       error: e,
-      data: "",
     });
   }
 };
@@ -329,79 +414,50 @@ export const updateUser = async (
       new: true,
     });
 
-    if (updatedBody?.role == "student") {
-      if (!updatedBody.student) {
-        reply.status(404).send({
-          status_code: 404,
-          message: "Nothing to Update",
-          data: "",
-        });
-      }
+    if (updatedBody.student) {
       const student_record = await Student.findOneAndUpdate(
         { user: userId },
         updatedBody.student,
         { new: true }
       );
       if (!student_record)
-        reply.status(404).send({
+        return reply.status(404).send({
           status_code: 404,
           message: "Student Record Not Found",
           data: "",
         });
-    } else if (
-      updatedBody?.role === "teacher" ||
-      updatedBody?.role === "principal" ||
-      updatedBody?.role === "hod" ||
-      updatedBody?.role === "admin" ||
-      updatedBody?.role === "staff"
-    ) {
-      if (!updatedBody.teacher) {
-        reply.status(404).send({
-          status_code: 404,
-          message: "Nothing to Update",
-          data: "",
-        });
-      }
+    }
+
+    if (updatedBody.teacher) {
       const teacher_record = await Teacher.findOne({
         user: userId,
       });
       if (!teacher_record) {
-        reply.status(404).send({
+        return reply.status(404).send({
           status_code: 404,
           message: "Teacher Record Not Found",
           data: "",
         });
       }
-      const teacherInstance = await Teacher.findByIdAndUpdate(
-        teacher_record?._id,
-        updatedBody.teacher,
-        {
-          new: true,
-        }
-      );
-    } else if (updatedBody?.role == "parent") {
-      if (!updatedBody.parent) {
-        reply.status(404).send({
-          status_code: 404,
-          message: "Nothing to Update",
-          data: "",
-        });
-      }
+
+      await Teacher.findByIdAndUpdate(teacher_record._id, updatedBody.teacher, {
+        new: true,
+      });
+    }
+
+    if (updatedBody.parent) {
       const parent_record = await Parent.findOne({ user: userId });
       if (!parent_record) {
-        reply.status(404).send({
+        return reply.status(404).send({
           status_code: 404,
-          message: "Teacher Record Not Found",
+          message: "Parent Record Not Found",
           data: "",
         });
       }
-      const parentInstance = await Parent.findByIdAndUpdate(
-        parent_record?._id,
-        updatedBody.parent,
-        {
-          new: true,
-        }
-      );
+
+      await Parent.findByIdAndUpdate(parent_record._id, updatedBody.parent, {
+        new: true,
+      });
     }
 
     reply.status(200).send({
@@ -515,7 +571,7 @@ export const listUser = async (
         .populate("batch", "name year")
         .skip(skip)
         .limit(limit)
-        .sort({ createdAt: -1 })
+        .sort({ _id: -1 })
         .lean();
     } else if (
       ["teacher", "principal", "hod", "admin", "staff"].includes(role)
@@ -542,6 +598,7 @@ export const listUser = async (
             match: { role },
             select: "-password_hash",
           })
+          .sort({ _id: -1 })
           .lean();
 
         const filteredTeachers = allTeachers.filter((t: any) => t.user !== null);
@@ -556,7 +613,7 @@ export const listUser = async (
           })
           .skip(skip)
           .limit(limit)
-          .sort({ createdAt: -1 })
+          .sort({ _id: -1 })
           .lean();
       }
     } else if (role === "parent") {
@@ -589,7 +646,7 @@ export const listUser = async (
         })
         .skip(skip)
         .limit(limit)
-        .sort({ createdAt: -1 })
+        .sort({ _id: -1 })
         .lean();
     } else {
       return reply.status(400).send({
@@ -604,8 +661,13 @@ export const listUser = async (
     const flattenedResults = results.map((record: any) => {
       if (record.user) {
         const { user, ...rest } = record;
+        const { _id: userId, ...userFields } = user;
         return {
-          ...user,
+          id: {
+            record: String(record._id),
+            user: String(userId),
+          },
+          ...userFields,
           ...rest,
         };
       }
@@ -733,9 +795,14 @@ export const bulkCreateUsers = async (
     }
     // ────────────────────────────────────────────────────────────────────────
 
-    // Process each user
+    // Resolve names/emails first so we can run one DB query for existing users.
+    const usersToProcess: Array<{
+      userData: (typeof users)[number];
+      userName: string;
+      userEmail: string;
+    }> = [];
+
     for (const userData of users) {
-      // Skip users that were pre-failed above (missing workspace fields)
       if (
         userData.generate_mail === true &&
         (!userData.candidate_code || !userData.adm_year || !userData.department)
@@ -743,7 +810,6 @@ export const bulkCreateUsers = async (
         continue;
       }
 
-      // Derive name and resolve email
       const userName = `${userData.first_name} ${userData.last_name}`;
       let userEmail: string;
 
@@ -768,16 +834,42 @@ export const bulkCreateUsers = async (
         userEmail = userData.email;
       }
 
+      usersToProcess.push({ userData, userName, userEmail });
+    }
+
+    const candidateEmails = [...new Set(usersToProcess.map((u) => u.userEmail))];
+    const existingUsers =
+      candidateEmails.length > 0
+        ? await User.find({ email: { $in: candidateEmails } }).select("email").lean()
+        : [];
+    const existingEmailSet = new Set(existingUsers.map((u: any) => u.email));
+
+    const finalUsersToProcess = usersToProcess.filter(({ userEmail }) => {
+      if (existingEmailSet.has(userEmail)) {
+        results.failed.push({
+          email: userEmail,
+          error: "User with this email already exists",
+        });
+        return false;
+      }
+      return true;
+    });
+
+    // Preload all batches once and cache them for O(1) lookups.
+    const batchByObjectId = new Map<string, string>();
+    const batchByCode = new Map<string, string>();
+
+    const preloadedBatches = await Batch.find({}).select("_id id").lean();
+    for (const batch of preloadedBatches as Array<{ _id: any; id?: string }>) {
+      batchByObjectId.set(batch._id.toString(), batch._id.toString());
+      if (batch.id) {
+        batchByCode.set(batch.id.toUpperCase(), batch._id.toString());
+      }
+    }
+
+    // Process each user that does not already exist
+    for (const { userData, userName, userEmail } of finalUsersToProcess) {
       try {
-        // Check if user already exists
-        const existingUser = await User.findOne({ email: userEmail });
-        if (existingUser) {
-          results.failed.push({
-            email: userEmail,
-            error: "User with this email already exists",
-          });
-          continue;
-        }
 
         // Generate random password if not provided
         const password = userData.password || Math.random().toString(36).slice(-12) + "A1!";
@@ -826,25 +918,27 @@ export const bulkCreateUsers = async (
           try {
             let batchId: string | undefined;
             if (userData.batch) {
-              const batchDoc = mongoose.Types.ObjectId.isValid(userData.batch)
-                ? await Batch.findById(userData.batch)
-                : await Batch.findOne({ id: userData.batch.toUpperCase() });
+              const batchKey = userData.batch;
+              batchId = mongoose.Types.ObjectId.isValid(batchKey)
+                ? batchByObjectId.get(batchKey)
+                : batchByCode.get(batchKey.toUpperCase());
 
-              if (!batchDoc) {
+              if (!batchId) {
                 throw new Error("Batch not found for provided batch ID");
               }
-              batchId = batchDoc._id.toString();
             }
 
-            const studentRecord = new Student({
+            const studentPayload: Record<string, unknown> = {
               user: userId,
-              adm_number: userData.adm_number,
-              adm_year: userData.adm_year,
-              candidate_code: userData.candidate_code,
-              department: userData.department,
-              date_of_birth: userData.date_of_birth,
-              batch: batchId,
-            });
+            };
+            if (typeof userData.adm_number === "string" && userData.adm_number.trim() !== "") studentPayload.adm_number = userData.adm_number;
+            if (userData.adm_year != null) studentPayload.adm_year = userData.adm_year;
+            if (typeof userData.candidate_code === "string" && userData.candidate_code.trim() !== "") studentPayload.candidate_code = userData.candidate_code;
+            if (typeof userData.department === "string" && userData.department.trim() !== "") studentPayload.department = userData.department;
+            if (userData.date_of_birth != null) studentPayload.date_of_birth = userData.date_of_birth;
+            if (batchId != null) studentPayload.batch = batchId;
+
+            const studentRecord = new Student(studentPayload);
             await studentRecord.save();
             successData.studentCreated = true;
           } catch (studentError) {
