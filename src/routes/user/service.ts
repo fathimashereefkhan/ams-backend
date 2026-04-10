@@ -310,16 +310,20 @@ export const listUser = async (
       limit?:  number;
       role:    string;
       search?: string;
+      batch?:  string;
     };
   }>,
   reply: FastifyReply
 ) => {
   try {
-    const { page = 1, limit = 10, role, search } = request.query;
+    const { page = 1, limit = 10, role, search, batch } = request.query;
     const skip = (page - 1) * limit;
 
     // Base filter
     const filter: Record<string, unknown> = { role };
+    if (batch) {
+      filter["profile.batch"] = new mongoose.Types.ObjectId(batch);
+    }
 
     // Text search — applies to user-level fields only
     if (search) {

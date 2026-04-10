@@ -14,6 +14,7 @@ export const userListSchema: RouteShorthandOptions["schema"] = {
         enum: ["student", "teacher", "parent", "principal", "hod", "staff", "admin"],
       },
       search: { type: "string", minLength: 1 },
+      batch: { type: "string" },
     },
   },
 };

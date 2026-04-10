@@ -58,8 +58,7 @@ fastify.route({
 	},
 });
 
-
-fastify.listen({ port: Number(process.env.PORT) || 3000 }, (err) => {
+fastify.listen({ port: Number(process.env.PORT) || 3000, host: process.env.HOST || "localhost" }, (err) => {
 	if (err) {
 		fastify.log.error(err);
 		process.exit(1);
