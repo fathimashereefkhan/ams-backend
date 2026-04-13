@@ -330,7 +330,7 @@ export const listUser = async (
     // Base filter
     const filter: Record<string, unknown> = { role };
     if (batch) {
-      filter["profile.batch"] = new mongoose.Types.ObjectId(batch);
+      filter["profile.batch"] = { $in: [new mongoose.Types.ObjectId(batch), batch] };
     }
 
     // Text search — applies to user-level fields only
@@ -353,9 +353,7 @@ export const listUser = async (
         .limit(limit)
         .lean(),
       User.countDocuments(filter),
-    ]);
-
-    console.log(users);
+    ]); 
 
     const totalPages = Math.ceil(totalCount / limit);
 
