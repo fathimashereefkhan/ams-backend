@@ -347,6 +347,8 @@ export const listUser = async (
       User.countDocuments(filter),
     ]);
 
+    console.log(users);
+
     const totalPages = Math.ceil(totalCount / limit);
 
     return reply.send({
@@ -540,8 +542,8 @@ export const bulkCreateUsers = async (
 
           if (userData.batch) {
             const batchId = mongoose.Types.ObjectId.isValid(userData.batch)
-              ? batchByObjectId.get(userData.batch)
-              : batchByCode.get(userData.batch.toUpperCase());
+              ? new mongoose.Types.ObjectId(batchByObjectId.get(userData.batch))
+              : new mongoose.Types.ObjectId(batchByCode.get(userData.batch.toUpperCase()));
 
             if (!batchId) {
               await authClient.admin.removeUser({ userId });
