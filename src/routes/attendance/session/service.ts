@@ -3,8 +3,6 @@ import mongoose from "mongoose";
 import { AttendanceSession } from "@/plugins/db/models/attendance.model";
 import { User } from "@/plugins/db/models/auth.model";
 
-const STAFF_ROLES = ["teacher", "hod", "principal", "admin", "staff"];
-
 export const createSession = async (
   request: FastifyRequest,
   reply: FastifyReply
@@ -24,14 +22,6 @@ export const createSession = async (
       return reply.status(404).send({
         status_code: 404,
         message: "Authenticated user profile not found",
-        data: "",
-      });
-    }
-
-    if (!STAFF_ROLES.includes(creatorUser.role)) {
-      return reply.status(403).send({
-        status_code: 403,
-        message: "You are not authorized to create attendance sessions",
         data: "",
       });
     }
@@ -101,9 +91,10 @@ export const getSession = async (
     const sessionId = request.params.id;
 
     const session = await AttendanceSession.findById(sessionId)
-      .populate("batch", "name code year")
-      .populate("subject", "name code")
-      .populate("created_by", "name email first_name last_name");
+      .populate("batch", "name code year adm_year department")
+      .populate("subject", "name code subject_code sem type")
+      .populate("created_by", "name email first_name last_name")
+      .populate("records.student", "name email first_name last_name profile");
 
     if (!session) {
       return reply.status(404).send({
@@ -175,6 +166,7 @@ export const listSessions = async (
       .populate("batch", "name code year")
       .populate("subject", "name code")
       .populate("created_by", "name email first_name last_name")
+      .select("-records")
       .sort({ start_time: -1 })
       .skip(skip)
       .limit(limit);
