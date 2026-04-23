@@ -1,8 +1,6 @@
 import mongoose from "mongoose";
 
-
 const {Schema , model } = mongoose;
-
 
 const batchSchema = new Schema(
     {
@@ -22,6 +20,7 @@ const batchSchema = new Schema(
 		},
         scheme: { type: String, required: true },
         staff_advisor : { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+        sem: { type: String, required: true, default: "1"},
     },
     { collection: "batch" },
 );
@@ -40,7 +39,10 @@ const subjectSchema = new Schema(
         total_marks: {type: Number, required: true},
         pass_mark: {type: Number, required: true},
         scheme: { type: String, required: true },
-        department: { type: String, required: true },
+        department: {
+			type: String, 
+			required:true
+		},
     },
     { collection: "subject" },
 );
